@@ -1,9 +1,10 @@
+# Stage 1: Build the environment and dependencies
 FROM python:3.12.2 AS build
 
 LABEL developer="Miloslavskiy Sergey"
 LABEL maintainer="MiloslavskiySergey@yandex.ru"
 
-# Installing required build packages
+# Install required build packages
 RUN set -ex && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -18,74 +19,52 @@ RUN set -ex && \
 
 # Set timezone
 ENV TZ="Europe/Moscow"
-
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 
 # Copy files to install CryptoPro
 COPY ./dist /cprocsp
 
-# Choosing a working directory for installing CryptoPro
+# Choose a working directory for installing CryptoPro
 WORKDIR /cprocsp
 
-# Download the archive from CryptoPro CSP (https://cryptopro.ru/products/csp/downloads#latest_csp50r2_linux), unpack this
-# archive and install CryptoPro CSP
+# Install CryptoPro CSP and related packages
 RUN set -ex && \
     tar xvf linux-amd64_deb.tgz && \
     ./linux-amd64_deb/install.sh && \
-    # Install cprocsp-devel package
-    apt-get install ./linux-amd64_deb/lsb-cprocsp-devel_*.deb
-
-# Download the archive from the CruptoPro EDS SDK (https://cryptopro.ru/products/cades/downloads), unpack this archive
-# and install the cprocsp-pki-cades package (version 2.0.14071 or later)
-RUN set -ex && \
+    apt-get install ./linux-amd64_deb/lsb-cprocsp-devel_*.deb && \
     mkdir ./cades-linux-amd64 && \
     tar xvf cades-linux-amd64.tar.gz && \
-    apt-get install ./cades-linux-amd64/cprocsp-pki-cades-*amd64.deb
-
-# Download and extract the pycades source archive
-# (https://cryptopro.ru/sites/default/files/products/cades/pycades/pycades.zip)
-RUN set -ex && \
+    apt-get install ./cades-linux-amd64/cprocsp-pki-cades-*amd64.deb && \
     unzip pycades.zip && \
-    # Set the value of the Python_INCLUDE_DIR variable in the CMakeList.txt file (Python.h folder)
-    sed -i '2c\SET(Python_INCLUDE_DIR "/usr/local/include/python3.12")' ./pycades_*/CMakeLists.txt
-
-# ENV PYCADES="pycades_0.1.30636"
-
-# Build extension pucades
-RUN set -ex && \
-    #cd /cprocsp/$PYCADES && \
+    sed -i '2c\SET(Python_INCLUDE_DIR "/usr/local/include/python3.12")' ./pycades_*/CMakeLists.txt && \
     cd /cprocsp/pycades_* && \
     mkdir build && \
     cd build && \
     cmake .. && \
     make -j4
 
-
+# Stage 2: Create the final image
 FROM python:3.12.2
-# Adding a new layer
-# ENV PYCADES="pycades_0.1.30636"
-# Copying CryptoPro and expanding pycades from the previous stage
-COPY --from=build /cprocsp/pycades_*/pycades.so /usr/local/lib/python3.10/pycades.so
 
+# Copy CryptoPro and pycades from the build stage
+COPY --from=build /cprocsp/pycades_*/pycades.so /usr/local/lib/python3.12/pycades.so
 COPY --from=build /opt/cprocsp /opt/cprocsp/
-
 COPY --from=build /var/opt/cprocsp /var/opt/cprocsp/
-
 COPY --from=build /etc/opt/cprocsp /etc/opt/cprocsp/
 
-# Installing the package for container operation via command line
+# Install packages for container operation
 RUN set -ex && \
     apt-get update && \
     apt-get install -y --no-install-recommends expect && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Copying bash scripts for container operation via command
-ADD scripts /scripts
+# Copy bash scripts and certificates
+COPY scripts /scripts
+COPY certificates /certificates
 
-
-# Creation of symbolic links in the contaioner so that CryptoPro functions can be performed via the command line
+# Create symbolic links for CryptoPro commands
 RUN cd /bin && \
     ln -s /opt/cprocsp/bin/amd64/certmgr && \
     ln -s /opt/cprocsp/bin/amd64/cpverify && \
@@ -97,27 +76,22 @@ RUN cd /bin && \
     ln -s /opt/cprocsp/bin/amd64/wipefile && \
     ln -s /opt/cprocsp/sbin/amd64/cpconfig
 
-#FROM cryptopro-AppFastApi
-
-ENV PYTHONUNBUFFERED 1
-ENV PATH /usr/local/bin:$PATH
-ENV LANG C.UTF-8
+# Set up application environment
+ENV PYTHONUNBUFFERED=1
+ENV PATH=/usr/local/bin:$PATH
+ENV LANG=C.UTF-8
 
 RUN mkdir /AppFastApi && \
     mkdir /AppFastApi/static
 
 WORKDIR /AppFastApi
 
-RUN apt-get update -y && \
-    pip install poetry && \
-    pip install --upgrade pip
-#    apt-get autoremove -y && \
-#    rm -rf /var/lib/apt/lists/*
+# Copy the application code
+COPY AppFastApi /AppFastApi
 
-COPY /AppFastApi /AppFastApi
+# Install Poetry and application dependencies
+RUN pip install poetry && \
+    poetry install
 
-RUN poetry install
-
-CMD poetry run uvicorn main:app --host 0.0.0.0 --port 80
-
-#CMD ['poetry', 'run', 'uvicorn', 'main:app', '--reload', '--host', 'localhost', '--port', '80']
+# Command to run the application
+CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
