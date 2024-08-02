@@ -84,7 +84,6 @@ RUN set -ex && \
 # Copying bash scripts for container operation via command
 ADD scripts /scripts
 
-ADD certificates /certificates
 
 # Creation of symbolic links in the contaioner so that CryptoPro functions can be performed via the command line
 RUN cd /bin && \
