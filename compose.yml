@@ -4,8 +4,8 @@ services:
   cryptopro:
     image: api.registry.viomitra.ru/cert:latest
     volumes:
-      - ./cryptopro-data:/var/opt/cprocsp/
-      - ./cryptopro-etc:/etc/opt/cprocsp/
+      - cryptopro-data:/var/opt/cprocsp/
+      - cryptopro-etc:/etc/opt/cprocsp/
     deploy:
       mode: replicated
       replicas: 1
@@ -33,3 +33,6 @@ services:
         - traefik.http.routers.cryptopro-https.tls=true
         - traefik.http.routers.cryptopro-https.tls.certresolver=le
         - traefik.http.services.cryptopro.loadbalancer.server.port=80
+volumes:
+  cryptopro-data:
+  cryptopro-etc:
