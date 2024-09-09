@@ -1,9 +1,6 @@
 # Stage 1: Build the environment and dependencies
 FROM python:3.12.2 AS build
 
-LABEL developer="Miloslavskiy Sergey"
-LABEL maintainer="MiloslavskiySergey@yandex.ru"
-
 # Install required build packages
 RUN set -ex && \
     apt-get update && \
@@ -18,7 +15,7 @@ RUN set -ex && \
     rm -rf /var/lib/apt/lists/*
 
 # Set timezone
-ENV TZ="Europe/Moscow"
+ENV TZ="Asia/Novosibirsk"
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 

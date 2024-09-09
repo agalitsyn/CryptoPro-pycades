@@ -21,11 +21,18 @@ requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
 
+# constants
 BASE_URL = "https://markirovka.sandbox.crptech.ru/api/v3/true-api"
+DETACHED_SIGNATURE = True
+ATTACHED_SINATURE = False
+SIGNATURE_TYPE = ATTACHED_SINATURE
 
 
 def main(oms_id: str) -> None:
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json;charset=UTF-8",
+        "Accept": "application/json;charset=UTF-8",
+    }
 
     # 1. Запрос авторизации при единой аутентификации
     auth_resp = requests.get(f"{BASE_URL}/auth/key", headers=headers).json()
@@ -41,7 +48,7 @@ def main(oms_id: str) -> None:
     certs = store.Certificates
     assert certs.Count != 0, "certificates with private key not found"
 
-    cert = certs.Item(2)
+    cert = certs.Item(1)
     logger.debug(
         f"{cert.IssuerName} {cert.SubjectName} {cert.ValidFromDate}-{cert.ValidToDate}"
     )
@@ -50,20 +57,36 @@ def main(oms_id: str) -> None:
     signer.Certificate = cert
     signer.CheckCertificate = True
 
+    logger.debug(f"raw data: {auth_resp["data"]}")
+    message_bytes = auth_resp["data"].encode("ascii")
+    base64_bytes = base64.b64encode(message_bytes)
+    base64_message = base64_bytes.decode("ascii")
+    logger.debug(f"base64 data for signing: {base64_message}")
+
     signedData = pycades.SignedData()
-    signedData.Content = base64.b64encode(auth_resp["data"].encode("utf-8")).decode(
-        "utf-8"
+    signedData.ContentEncoding = pycades.CADESCOM_BASE64_TO_BINARY
+    signedData.Content = base64_message
+    signature = signedData.SignCades(
+        signer,
+        pycades.CADESCOM_CADES_BES,
+        SIGNATURE_TYPE,
+        pycades.CAPICOM_ENCODE_BASE64,
     )
-    signature = signedData.SignCades(signer, pycades.CADESCOM_CADES_BES)
     logger.debug("signed")
 
     _signedData = pycades.SignedData()
-    _signedData.VerifyCades(signature, pycades.CADESCOM_CADES_BES)
+    _signedData.ContentEncoding = pycades.CADESCOM_BASE64_TO_BINARY
+    _signedData.Content = signedData.Content
+    _signedData.VerifyCades(
+        signature,
+        pycades.CADESCOM_CADES_BES,
+        SIGNATURE_TYPE,
+    )
     logger.debug("verified")
 
     token_req = {
         "uuid": auth_resp["uuid"],
-        "data": signature.replace("\r\n", ""),
+        "data": "".join(signature.splitlines()),
     }
 
     # 3. Получение аутентификационного токена
@@ -77,6 +100,6 @@ def main(oms_id: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--oms_id", type=str)
+    parser.add_argument("--oms_id", type=str, required=True)
     args = parser.parse_args()
     main(args.oms_id)

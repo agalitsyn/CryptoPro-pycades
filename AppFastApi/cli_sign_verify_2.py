@@ -17,11 +17,17 @@ requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
 
+# constants
 BASE_URL = "https://markirovka.sandbox.crptech.ru/api/v3/true-api"
+DETACHED_SIGNATURE = True
+ATTACHED_SINATURE = False
 
 
 def main(oms_id: str) -> None:
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json;charset=UTF-8",
+        "Accept": "application/json;charset=UTF-8",
+    }
 
     # 1. Запрос авторизации при единой аутентификации
     auth_resp = requests.get(f"{BASE_URL}/auth/key", headers=headers).json()
@@ -41,7 +47,7 @@ def main(oms_id: str) -> None:
     certs = store.Certificates
     assert certs.Count != 0, "certificates with private key not found"
 
-    cert = certs.Item(2)
+    cert = certs.Item(1)
     logger.debug(
         f"{cert.IssuerName} {cert.SubjectName} {cert.ValidFromDate}-{cert.ValidToDate}"
     )
@@ -54,14 +60,22 @@ def main(oms_id: str) -> None:
     signedData = pycades.SignedData()
     signedData.ContentEncoding = pycades.CADESCOM_BASE64_TO_BINARY
     signedData.Content = base64_str
-    signature = signedData.SignCades(signer, pycades.CADESCOM_CADES_BES, True)
+    signature = signedData.SignCades(
+        signer,
+        pycades.CADESCOM_CADES_BES,
+        ATTACHED_SINATURE,
+    )
     final_signature = "".join(signature.splitlines())
     logger.debug("signed")
 
     _signedData = pycades.SignedData()
     _signedData.ContentEncoding = pycades.CADESCOM_BASE64_TO_BINARY
     _signedData.Content = signedData.Content
-    _signedData.VerifyCades(signature, pycades.CADESCOM_CADES_BES, True)
+    _signedData.VerifyCades(
+        signature,
+        pycades.CADESCOM_CADES_BES,
+        ATTACHED_SINATURE,
+    )
     logger.debug("verified")
 
     token_req = {
