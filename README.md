@@ -1,10 +1,8 @@
 # КриптоПро 5.0 в докер контейнере c расширением pycades
 
-[Инструкция по установке и сборке расширения для языка Python](https://docs.cryptopro.ru/cades/pycades/pycades-build)
-
 Содержимое контейнера:
 
-* python3.9.10 с установленным расширением `pycades` (`CPStore`, `CPSigner`, `CPSignedData`)
+* python 3.9.10 с установленным расширением `pycades` (`CPStore`, `CPSigner`, `CPSignedData`)
 * инструменты КриптоПро: `certmgr`, `cpverify`, `cryptcp`, `csptest`, `csptestf`, `der2xer`, `inittst`, `wipefile`, `cpconfig`
 * вспомогательные скрипты командой строки
 * HTTP REST-сервер
@@ -26,54 +24,29 @@
 ├── README.md     - этот файл
 └── scripts       - вспомогательные скрипты командой строки
 └── www           - HTTP REST-сервер
-````
-
-# Создание образа из исходного кода
-
-Скачать с официального сайта в `dist/` (необходимо быть залогиненым в системе):
-
-* [КриптоПро CSP 5.0 для Linux (x64, deb)](https://www.cryptopro.ru/products/csp/downloads) => `dist/linux-amd64_deb.tgz`
-* КриптоПро ЭЦП SDK [версия 2.0 для пользователей](https://cryptopro.ru/products/cades/downloads) => `dist/cades-linux-amd64.tar.gz` - Linux версию
-* [Архив с исходниками](https://cryptopro.ru/sites/default/files/products/cades/pycades/pycades.zip) => `dist/pycades.zip`
-
-Запустить:
-
-```
-docker build --tag cryptopro_5 .
 ```
 
-## Возможные проблемы
+# Работа с контейнером через интерфейс командной строки
 
-В `Dockerfile` содержатся названия пакетов, например `lsb-cprocsp-devel_5.0.12000-6_all.deb`, которые могут заменить новой версией. Следует поправить названия пакетов в `Dockerfile`.
+## Сборка и запуск
 
-# Запуск контейнера
-
-Запустим контейнер под именем `cryptopro`, к которому будем обращаться в примерах:
-
-```shell
-docker run -it --rm -p 8095:80 --name cryptopro cryptopro_5
+```sh
+docker compose build
+docker compose up
 ```
-
-Для сохранения сертификатов и лицензии дополнительно монтируем директории
-
-```
-docker run -it -p 8095:80 -v ./cryptopro-data:/var/opt/cprocsp/ -v ./cryptopro-etc:/etc/opt/cprocsp/ --name cryptopro cryptopro_5
-```
-
-# Работа с контейнером через интерфейс командной строки<a name="cli"></a>
 
 ## Лицензия
 
 Установка серийного номера:
 
-```shell
-docker exec -i cryptopro cpconfig -license -set <серийный_номер>
+```sh
+docker compose exec -T cryptopro cpconfig -license -set <серийный_номер>
 ```
 
 Просмотр:
 
-```shell
-docker exec -i cryptopro cpconfig -license -view
+```sh
+docker compose exec -T cryptopro cpconfig -license -view
 ```
 
 ![license](./assets/license.gif)
@@ -87,24 +60,44 @@ docker exec -i cryptopro cpconfig -license -view
 
 Скачаем сертификат на диск с помощью `curl` и передадим полученный файл на `stdin` с запуском команды его установки:
 
-```shell
+```sh
+# сертификаты УЦ
 curl -sS http://cpca.cryptopro.ru/cacer.p7b > certificates/cacer.p7b
-cat certificates/cacer.p7b | docker exec -i cryptopro /scripts/root
+cat certificates/cacer.p7b | docker compose exec -T cryptopro /scripts/root
+# сертификаты тестового УЦ
+curl -sS http://testca2012.cryptopro.ru/cert/rootca.cer > certificates/rootca.p7b
+cat certificates/rootca.p7b | docker compose exec -T cryptopro /scripts/root
+curl -sS http://testca2012.cryptopro.ru/cert/subca.cer > certificates/subca.p7b
+cat certificates/subca.p7b | docker compose exec -T cryptopro /scripts/root
 ```
 
 ### Без скачивания на диск
 
-```shell
+```sh
 # сертификаты УЦ
-curl -sS http://cpca.cryptopro.ru/cacer.p7b | docker exec -i cryptopro /scripts/root
+curl -sS http://cpca.cryptopro.ru/cacer.p7b | docker compose exec -T cryptopro /scripts/root
 # сертификаты тестового УЦ
-curl -sS http://testca2012.cryptopro.ru/cert/rootca.cer | docker exec -i cryptopro /scripts/root
-curl -sS http://testca2012.cryptopro.ru/cert/subca.cer | docker exec -i cryptopro /scripts/root
+curl -sS http://testca2012.cryptopro.ru/cert/rootca.cer | docker compose exec -T cryptopro /scripts/root
+curl -sS http://testca2012.cryptopro.ru/cert/subca.cer | docker compose exec -T cryptopro /scripts/root
 ```
 
 ![cacer](./assets/cacer.gif)
 
 Примечание: по какой-то причине иногда "заедает", но при повторном запуске - срабатывает.
+
+## Как создать новый тестовый сертификат для Честного Знака
+
+- [Заходим в Тестовый Удостоверяющий Центр](http://testca2012.cryptopro.ru/ui/)
+- Сертификаты - Создать
+- Заполняем обязательные поля по [инструкции](https://честныйзнак.рф/business/doc/?id=Инструкция_по_созданию_тестовой_подписи.html), иначе будет ошибка при логине или регистрации
+- Запросы - Изготовление - Обновить, подождать, Установить
+- Установить в реестр или вставить флешку, выгрузить приватную часть
+- Скачать публичный сертификат
+- Скопировать папку, создать zip без корневой папки
+
+Более подробные инструкции:
+- [Инструкция по созданию тестовой подписи](./docs/Инструкция_по_созданию_тестовой_подписи.pdf)
+- [Как получить рабочий сертификат КриптоПро и установить на Linux](./docs/Как%20получить%20рабочий%20сертификат%20КриптоПро%20и%20установить%20на%20Linux.pdf)
 
 ## Установка сертификатов пользователя для проверки и подписания
 
@@ -121,8 +114,6 @@ curl -sS http://testca2012.cryptopro.ru/cert/subca.cer | docker exec -i cryptopr
     └── primary.key
 ```
 
-[Как получить сертификат КриптоПро](http://pushorigin.ru/cryptopro/real-cert-crypto-pro-linux).
-
 Первый найденный файл в корне архива будет воспринят как сертификат, а первый найденный каталог - как связка файлов закрытого ключа. Пароль от контейнера, если есть, передается первым параметром командной строки.
 
 В каталоге `certificates/` содержатся различные комбинации тестового сертификата и закрытого ключа, с PIN кодом и без:
@@ -138,62 +129,83 @@ curl -sS http://testca2012.cryptopro.ru/cert/subca.cer | docker exec -i cryptopr
 
 Примеры:
 
-```shell
+```sh
 # сертификат + закрытый ключ с пин-кодом
-cat certificates/bundle-pin.zip | docker exec -i cryptopro /scripts/my 12345678
+cat certificates/bundle-pin.zip | docker compose exec -T cryptopro /scripts/my 12345678
 
 # сертификат + закрытый ключ БЕЗ пин-кода
-cat certificates/bundle-no-pin.zip | docker exec -i cryptopro /scripts/my
+cat certificates/bundle-no-pin.zip | docker compose exec -T cryptopro /scripts/my
 
 # только сертификат
-cat certificates/bundle-cert-only.zip | docker exec -i cryptopro /scripts/my
+cat certificates/bundle-cert-only.zip | docker compose exec -T cryptopro /scripts/my
 
 # только закрытый ключ
-cat certificates/bundle-private-key-only.zip | docker exec -i cryptopro /scripts/my
+cat certificates/bundle-private-key-only.zip | docker compose exec -T cryptopro /scripts/my
 
 # сертификат + закрытый ключ, название контейнера "тестовое название контейнера" (кириллица)
-cat certificates/bundle-cyrillic.zip | docker exec -i cryptopro /scripts/my
+cat certificates/bundle-cyrillic.zip | docker compose exec -T cryptopro /scripts/my
 ```
 
 ![my-cert](./assets/my-cert.gif)
+
+Более подробные инструкции:
+- [Работа с КриптоПро на linux сервере](./docs/Работа%20с%20КриптоПро%20на%20linux%20сервере.pdf)
+
+## Как скопировать подпись для production
+
+Есть 2 варианта, безопасный и дешевый.
+
+Безопасный:
+- Купить отдельную ЭЦП
+- Добавить пользователя, в Честном Знаке по подписи директор может добавить сотрудника и указать ему права доступа
+- Выгрузить ее на сервер и использовать для подписания
+
+Дешевый:
+- Скопировать директорскую подпись, но придется повозиться с "защищенным" носителем типа рутокен. Не рекомендуется, тк при краже такой подписи хакер получает полный доступ к очень многим гос ресурсам от лица компании.
+
+Более подробные инструкции:
+- [Как скопировать контейнер с сертификатом на другой носитель](./docs/Как%20скопировать%20контейнер%20с сертификатом%20на другой%20носитель.pdf)
+- [Копирование ЭЦП от ФНС на флешку (2024)](./docs/Копирование%20ЭЦП%20от%20ФНС%20на%20флешку%20(2024).pdf)
+
+# CLI
 
 ## Просмотр установленных сертификатов
 
 Сертификаты пользователя:
 
-```shell
-docker exec -i cryptopro certmgr -list
+```sh
+docker compose exec -T cryptopro certmgr -list
 ```
 
 ![show-certs](./assets/show-certs.gif)
 
 Корневые сертификаты:
 
-```shell
-docker exec -i cryptopro certmgr -list -store root
+```sh
+docker compose exec -T cryptopro certmgr -list -store root
 ```
 
 ## Подписание документа
 
 Для примера установим этот тестовый сертификат:
 
-```shell
+```sh
 # сертификат + закрытый ключ с пин-кодом
-cat certificates/bundle-pin.zip | docker exec -i cryptopro /scripts/my 12345678
+cat certificates/bundle-pin.zip | docker compose exec -T cryptopro /scripts/my 12345678
 ```
 
 Его SHA1 Hash равен `dd45247ab9db600dca42cc36c1141262fa60e3fe` (узнать: `certmgr -list`), который будем использовать как указатель нужного сертификата.
 
 Теперь передадим на `stdin` файл, в качестве команды - последовательность действий, и на `stdout` получим подписанный файл:
 
-```shell
-cat README.md | docker exec -i cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -sign -thumbprint dd45247ab9db600dca42cc36c1141262fa60e3fe -nochain -pin 12345678 "$tmp" "$tmp.sig" > /dev/null 2>&1; cat "$tmp.sig"; rm -f "$tmp" "$tmp.sig"'
+```sh
+cat README.md | docker compose exec -T cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -sign -thumbprint dd45247ab9db600dca42cc36c1141262fa60e3fe -nochain -pin 12345678 "$tmp" "$tmp.sig" > /dev/null 2>&1; cat "$tmp.sig"; rm -f "$tmp" "$tmp.sig"'
 ```
 
 Получилось довольно неудобно. Скрипт `scripts/sign` делает то же самое, теперь команда подписания будет выглядеть так:
 
-```shell
-cat README.md | docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678
+```sh
+cat README.md | docker compose exec -T cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678
 ```
 
 ![sign](./assets/sign.gif)
@@ -204,20 +216,20 @@ cat README.md | docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c
 
 Подпишем файл из примера выше и сохраним его на диск:
 
-```shell
-cat README.md | docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678 > certificates/README.md.sig
+```sh
+cat README.md | docker compose exec -T cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678 > certificates/README.md.sig
 ```
 
 Тогда проверка подписанного файла будет выглядеть так:
 
-```shell
-cat certificates/README.md.sig | docker exec -i cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -verify -norev -f "$tmp" "$tmp"; rm -f "$tmp"'
+```sh
+cat certificates/README.md.sig | docker compose exec -T cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -verify -norev -f "$tmp" "$tmp"; rm -f "$tmp"'
 ```
 
 То же самое, но с использованием скрипта:
 
-```shell
-cat certificates/README.md.sig | docker exec -i cryptopro scripts/verify
+```sh
+cat certificates/README.md.sig | docker compose exec -T cryptopro /scripts/verify
 ```
 
 ![verify](./assets/verify.gif)
@@ -226,14 +238,14 @@ cat certificates/README.md.sig | docker exec -i cryptopro scripts/verify
 
 Возьмем файл из примера выше:
 
-```shell
-cat certificates/README.md.sig | docker exec -i cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -verify -nochain "$tmp" "$tmp.origin" > /dev/null 2>&1; cat "$tmp.origin"; rm -f "$tmp" "$tmp.origin"'
+```sh
+cat certificates/README.md.sig | docker compose exec -T cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -verify -nochain "$tmp" "$tmp.origin" > /dev/null 2>&1; cat "$tmp.origin"; rm -f "$tmp" "$tmp.origin"'
 ```
 
 То же самое, но с использованием скрипта:
 
-```shell
-cat certificates/README.md.sig | docker exec -i cryptopro scripts/unsign
+```sh
+cat certificates/README.md.sig | docker compose exec -T cryptopro /scripts/unsign
 ```
 
 ![unsign](./assets/unsign.gif)
@@ -242,19 +254,19 @@ cat certificates/README.md.sig | docker exec -i cryptopro scripts/unsign
 
 В примерах выше команды выглядят так: `cat ... | docker ...` или `curl ... | docker ...`, то есть контейнер запущен на локальной машине. Если же докер контейнер запущен на удаленной машине, то команды нужно отправлять через ssh клиент. Например, команда подписания:
 
-```shell
-cat README.md | ssh -q user@host 'docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678'
+```sh
+cat README.md | ssh -q user@host 'docker compose exec -T cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678'
 ```
 
 Опция `-q` отключает приветствие из файла `/etc/banner` (хотя оно все равно пишется в `stderr`). А `/etc/motd` при выполнении команды по ssh не выводится.
 
 В качестве эксперимента можно отправить по ssh на свою же машину так:
 
-```shell
+```sh
 # копируем публичный ключ на "удаленную машину" (на самом деле - localhost)
 ssh-copy-id $(whoami)@localhost
 # пробуем подписать
-cat README.md | ssh -q $(whoami)@localhost 'docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678'
+cat README.md | ssh -q $(whoami)@localhost 'docker compose exec -T cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678'
 ```
 
 # Работа с контейнером через HTTP REST-сервер<a name="http"></a>
@@ -283,7 +295,7 @@ cat README.md | ssh -q $(whoami)@localhost 'docker exec -i cryptopro /scripts/si
 
 Например, обращение с неправильным методом
 
-```shell
+```sh
 curl -sS -X POST --data-binary "bindata" http://localhost:8095/healthchecks
 ```
 
@@ -293,11 +305,9 @@ curl -sS -X POST --data-binary "bindata" http://localhost:8095/healthchecks
 {"status":"fail","errMsg":"Method must be one of: GET","errCode":405}
 ```
 
-
-
 ## `/certificates` - все установленные сертификаты пользователя
 
-```shell
+```sh
 curl -X 'GET' \
   'http://localhost:8085/certificate' \
   -H 'accept: application/json'
@@ -360,7 +370,7 @@ curl -X 'GET' \
 
 Для установки коневых сертификатов нужно передать файл (с расширением cer или p7b) в сервис.
 
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/certificate/root' \
   -H 'accept: application/json' \
@@ -383,15 +393,16 @@ curl -X 'POST' \
 ```
 
 С пин-кодом:
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/certificate/private_key?pin=1234' \
   -H 'accept: application/json' \
   -H 'Content-Type: multipart/form-data' \
   -F 'file=@bundle-pin.zip;type=application/zip'
 ```
+
 Без пин-кодом:
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/certificate/private_key' \
   -H 'accept: application/json' \
@@ -402,7 +413,7 @@ curl -X 'POST' \
 
 Для установки серийного номера лицензии нужно передать номер.
 
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/license?serial_number=12345-12345-12345-12345-12345' \
   -H 'accept: application/json' \
@@ -414,7 +425,7 @@ curl -X 'POST' \
 Для подписания нужно передать файл в сервис.
 
 С пин-кодом:
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/signer?pin=123' \
   -H 'accept: application/json' \
@@ -423,7 +434,7 @@ curl -X 'POST' \
 ```
 
 Без пин-кода:
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/signer' \
   -H 'accept: application/json' \
@@ -437,7 +448,7 @@ curl -X 'POST' \
 
 Для проверки подписи передаем подписанный и не подписанный файлы.
 
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/verify' \
   -H 'accept: application/json' \
@@ -453,7 +464,7 @@ curl -X 'POST' \
 
 Исходный файл вернется в поле `content`.
 
-```shell
+```sh
 curl -X 'POST' \
   'http://localhost:8085/unsigner' \
   -H 'accept: application/json' \
@@ -461,10 +472,49 @@ curl -X 'POST' \
   -F 'file=@filename.sig;type=application/sig'
 ```
 
+## Пояснения к созданию образа
+
+Скачать с официального сайта в `dist/` (необходимо быть залогиненым в системе):
+
+* [КриптоПро CSP 5.0 для Linux (x64, deb)](https://www.cryptopro.ru/products/csp/downloads) => `dist/linux-amd64_deb.tgz`
+* КриптоПро ЭЦП SDK [версия 2.0 для пользователей](https://cryptopro.ru/products/cades/downloads) => `dist/cades-linux-amd64.tar.gz` - Linux версию
+* [Архив с исходниками](https://cryptopro.ru/sites/default/files/products/cades/pycades/pycades.zip) => `dist/pycades.zip`
+
+Запустить:
+
+```
+docker build --tag cryptopro_5 .
+```
+
+### Возможные проблемы
+
+В `Dockerfile` содержатся названия пакетов, например `lsb-cprocsp-devel_5.0.12000-6_all.deb`, которые могут заменить новой версией. Следует поправить названия пакетов в `Dockerfile`.
+
+### Запуск контейнера
+
+Запустим контейнер под именем `cryptopro`, к которому будем обращаться в примерах:
+
+```sh
+docker run -it --rm -p 8095:80 --name cryptopro cryptopro_5
+```
+
+Для сохранения сертификатов и лицензии дополнительно монтируем директории
+
+```sh
+docker run -it -p 8095:80 -v ./cryptopro-data:/var/opt/cprocsp/ -v ./cryptopro-etc:/etc/opt/cprocsp/ --name cryptopro cryptopro_5
+```
+
+# Настройка Крипто Про на MacOS
+
+1. Установить браузер с поддрежкой ГОСТ сертификатов, рекомендую Яндекс Браузер
+2. Автоматизировать настройку через сайт [Контур Диагностика](https://help.kontur.ru/uc), нужно выбрать раздел "для ЭТП и госпорталов". Так же можно убрать галочки с установки компонентов Контура
+3. В браузере кликнуть на иконку расширения Крипто Про и выбрать "Проверить настройки плагина"
+4.
 
 # Ссылки
 
 * [Страница расширения для Python](https://docs.cryptopro.ru/cades/pycades)
+* [Инструкция по установке и сборке расширения для языка Python](https://docs.cryptopro.ru/cades/pycades/pycades-build)
 * [Тестовый УЦ](http://testca2012.cryptopro.ru/ui/), его сертификаты: [корневой](http://testca2012.cryptopro.ru/cert/rootca.cer), [промежуточный](http://testca2012.cryptopro.ru/cert/subca.cer)
 
 
@@ -476,4 +526,3 @@ curl -X 'POST' \
 * [CryptoProCSP](https://github.com/taigasys/CryptoProCSP), он классный, но:
   * давно не обновлялся, используется версия `PHP5.6`
   * для запуска пришлось подредактировать `Dockerfile`
-

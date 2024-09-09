@@ -1,0 +1,17 @@
+services:
+  cryptopro:
+    build:
+      context: "."
+      platforms:
+        - "linux/amd64"
+    image: cryptopro
+    volumes:
+      - cryptopro-data:/var/opt/cprocsp/
+      - cryptopro-etc:/etc/opt/cprocsp/
+    ports:
+      - '8095:80'
+    restart: on-failure
+
+volumes:
+  cryptopro-data:
+  cryptopro-etc:
