@@ -53,7 +53,7 @@ COPY --from=build /etc/opt/cprocsp /etc/opt/cprocsp/
 # Install packages for container operation
 RUN set -ex && \
     apt-get update && \
-    apt-get install -y --no-install-recommends expect && \
+    apt-get install -y --no-install-recommends expect jq curl && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
