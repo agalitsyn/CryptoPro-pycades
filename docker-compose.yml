@@ -9,7 +9,9 @@ services:
       - cryptopro-data:/var/opt/cprocsp/
       - cryptopro-etc:/etc/opt/cprocsp/
     ports:
-      - '8095:80'
+      - "8095:80"
+    env_file:
+      - .env
     restart: on-failure
 
 volumes:

@@ -4,4 +4,5 @@ services:
       - ./AppFastApi:/AppFastApi
       - ./certificates:/certificates
       - ./scripts:/scripts
+      - ./scripts_crpt:/scripts_crpt
     command: poetry run uvicorn --reload --host 0.0.0.0 --port 80 --log-level debug "main:app"

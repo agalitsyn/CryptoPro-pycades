@@ -57,10 +57,6 @@ RUN set -ex && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy bash scripts and certificates
-COPY scripts /scripts
-COPY certificates /certificates
-
 # Create symbolic links for CryptoPro commands
 RUN cd /bin && \
     ln -s /opt/cprocsp/bin/amd64/certmgr && \
@@ -72,6 +68,11 @@ RUN cd /bin && \
     ln -s /opt/cprocsp/bin/amd64/inittst && \
     ln -s /opt/cprocsp/bin/amd64/wipefile && \
     ln -s /opt/cprocsp/sbin/amd64/cpconfig
+
+# Copy bash scripts and certificates
+COPY scripts /scripts
+COPY scripts_crpt /scripts_crpt
+COPY certificates /certificates
 
 # Set up application environment
 ENV PYTHONUNBUFFERED=1
